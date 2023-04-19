@@ -1,6 +1,5 @@
 ﻿using BackPropagationNeuralNetworkTR.Activation;
 using BackPropagationNeuralNetworkTR.Dataset;
-using BackPropagationNeuralNetworkTR.Loss;
 using BackPropagationNeuralNetworkTR.Module;
 using BackPropagationNeuralNetworkTR.Util;
 
@@ -8,15 +7,14 @@ namespace BackPropagationNeuralNetworkTR;
 
 class Program
 {
-    const int Epoch = 100;
+    const int Epoch = 7;
     const double LearningRate = 0.3;
 
     static void Main(string[] args)
     {
         var dataset = new YaleDataset();
         var (trainSet, testSet) = dataset.Split(5);
-        var model = new BackPropagation(8000, 64, dataset.SubjectCount,
-                                        LearningRate, new Sigmoid(), new MeanSquareError());
+        var model = new BackPropagation(8000, 64, dataset.SubjectCount, LearningRate, new Sigmoid());
         // Training
         Console.WriteLine($"Start training model with hidden {model.HiddenCount} neurons, learning rate {model.LearningRate}");
         for (var epoch = 0; epoch < Epoch; epoch++)

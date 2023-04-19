@@ -1,11 +1,10 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
 using BackPropagationNeuralNetworkTR.Activation;
-using BackPropagationNeuralNetworkTR.Loss;
 
 namespace BackPropagationNeuralNetworkTR.Module;
 
-class BackPropagation : ILearnableModule<byte, double>
+class BackPropagation : ILearnableModule<double, double>
 {
     public static BackPropagation Load(string path)
     {
@@ -19,9 +18,8 @@ class BackPropagation : ILearnableModule<byte, double>
     public int OutputCount { get; }
     public double LearningRate { get; }
     public IActivationFunction<double, double> ActivationFunction { get; }
-    public ILossFunction<IEnumerable<double>, double> LossFunction { get; }
 
-    byte[] input;
+    double[] input;
     readonly double[] hidden;
     readonly double[] output;
     readonly double[,] inputHiddenWeights;
@@ -30,16 +28,14 @@ class BackPropagation : ILearnableModule<byte, double>
     readonly double[] outputThresholds;
 
     public BackPropagation(int inputCount, int hiddenCount, int outputCount, double learningRate,
-                           IActivationFunction<double, double> activationFunction,
-                           ILossFunction<IEnumerable<double>, double> lossFunction)
+                           IActivationFunction<double, double> activationFunction)
     {
         InputCount = inputCount;
         HiddenCount = hiddenCount;
         OutputCount = outputCount;
         LearningRate = learningRate;
         ActivationFunction = activationFunction;
-        LossFunction = lossFunction;
-        input = new byte[inputCount];
+        input = new double[inputCount];
         hidden = new double[hiddenCount];
         output = new double[outputCount];
 
@@ -50,46 +46,43 @@ class BackPropagation : ILearnableModule<byte, double>
         outputThresholds = new double[outputCount].RandomInitialize();
     }
 
-    public double[] Forward(byte[] input)
+    public double[] Forward(double[] input)
     {
         Debug.Assert(input.Length == InputCount);
         this.input = input;
+        Array.Fill(hidden, 0);
+        Array.Fill(output, 0);
 
-        // Input -> Hidden
-        for (var i = 0; i < InputCount; i++)
+        // Input -> Activated Hidden
+        for (var j = 0; j < HiddenCount; j++)
         {
-            var inputElement = this.input[i];
+            for (var i = 0; i < InputCount; i++)
+            {
+                hidden[j] += input[i] * inputHiddenWeights[i, j];
+            }
+            hidden[j] = ActivationFunction.Activate(hidden[j] + hiddenThresholds[j]);
+        }
+
+        // Activated Hidden -> Activated Output
+        for (var k = 0; k < OutputCount; k++)
+        {
             for (var j = 0; j < HiddenCount; j++)
             {
-                hidden[j] += inputElement * inputHiddenWeights[i, j];
+                output[k] += hidden[j] * hiddenOutputWeights[j, k];
             }
-        }
-
-        // Activated Hidden -> Output
-        for (var i = 0; i < HiddenCount; i++)
-        {
-            hidden[i] = ActivationFunction.Activate(hidden[i] + hiddenThresholds[i]);
-            for (var j = 0; j < OutputCount; j++)
-            {
-                output[j] = hiddenOutputWeights[i, j] * hidden[i];
-            }
-        }
-
-        // Activated Output returns.
-        for (var i = 0; i < OutputCount; i++)
-        {
-            output[i] = ActivationFunction.Activate(output[i] + outputThresholds[i]);
+            output[k] = ActivationFunction.Activate(output[k] + outputThresholds[k]);
         }
         return output;
     }
 
     public void Backward(double[] groundTruth)
     {
+        Debug.Assert(groundTruth.Length == OutputCount);
         // Calculate errors.
         var hiddenOutputError = new double[OutputCount];
-        for (var i = 0; i < OutputCount; i++)
+        for (var k = 0; k < OutputCount; k++)
         {
-            hiddenOutputError[i] = (groundTruth[i] - output[i]) * ActivationFunction.Derivative(output[i]);
+            hiddenOutputError[k] = (groundTruth[k] - output[k]) * ActivationFunction.Derivative(output[k]);
         }
 
         var inputHiddenError = new double[HiddenCount];
@@ -103,22 +96,22 @@ class BackPropagation : ILearnableModule<byte, double>
         }
 
         // Adjust parameters and thresholds.
-        for (var j = 0; j < HiddenCount; j++)
+        for (var k = 0; k < OutputCount; k++)
         {
-            for (var k = 0; k < OutputCount; k++)
+            outputThresholds[k] += LearningRate * hiddenOutputError[k];
+            for (var j = 0; j < HiddenCount; j++)
             {
                 hiddenOutputWeights[j, k] += LearningRate * hiddenOutputError[k] * hidden[j];
             }
         }
-        for (var i = 0; i < InputCount; i++)
+        for (var j = 0; j < HiddenCount; j++)
         {
-            for (var j = 0; j < HiddenCount; j++)
+            hiddenThresholds[j] += LearningRate * inputHiddenError[j];
+            for (var i = 0; i < InputCount; i++)
             {
                 inputHiddenWeights[i, j] += LearningRate * inputHiddenError[j] * input[i];
             }
         }
-        for (var k = 0; k < OutputCount; k++) outputThresholds[k] += LearningRate * hiddenOutputError[k];
-        for (var j = 0; j < HiddenCount; j++) hiddenThresholds[j] += LearningRate * inputHiddenError[j];
     }
 
     public void Save(string path)
@@ -135,7 +128,7 @@ static class RandomInitializationExtension
     {
         for (var i = 0; i < sequence.Count; i++)
         {
-            sequence[i] = Random.Shared.NextDouble();
+            sequence[i] = Random.Shared.NextDouble() / 1000;
         }
         return sequence;
     }
@@ -146,7 +139,7 @@ static class RandomInitializationExtension
         {
             for (var j = 0; j < matrix.GetLength(1); j++)
             {
-                matrix[i, j] = Random.Shared.NextDouble();
+                matrix[i, j] = Random.Shared.NextDouble() / 1000;
             }
         }
         return matrix;

@@ -31,10 +31,12 @@ readonly struct BitmapInformationHeader
 sealed class Bitmap
 {
     public static byte[] ReadImageData(string path) => new Bitmap(path).ImageData;
+    public static double[] ReadNormalizedImageData(string path) => new Bitmap(path).NormalizedImageData;
 
     public BitmapFileHeader FileHeader { get; }
     public BitmapInformationHeader InformationHeader { get; }
     public byte[] ImageData { get; }
+    public double[] NormalizedImageData { get; }
 
     public Bitmap(string path)
     {
@@ -49,9 +51,13 @@ sealed class Bitmap
 
         var headerSize = Marshal.SizeOf<BitmapFileHeader>() + Marshal.SizeOf<BitmapInformationHeader>();
         if (FileHeader.Offbits > headerSize)
-            // Drop color map.
             binaryReader.ReadBytes((int)(FileHeader.Offbits - headerSize));
         ImageData = binaryReader.ReadBytes((int)(FileHeader.FileSize - FileHeader.Offbits));
+        NormalizedImageData = new double[ImageData.Length];
+        for (var i = 0; i < ImageData.Length; i++)
+        {
+            NormalizedImageData[i] = ImageData[i] / 255.0;
+        }
     }
 }
 
