@@ -7,15 +7,22 @@ namespace BackPropagationNeuralNetworkTR;
 
 class Program
 {
-    const int Epoch = 7;
-    const double LearningRate = 0.3;
+    const int Epoch = 100;
+    const double LearningRate = 0.1;
 
     static void Main(string[] args)
     {
         var dataset = new YaleDataset();
         var (trainSet, testSet) = dataset.Split(5);
         var model = new BackPropagation(8000, 64, dataset.SubjectCount, LearningRate, new Sigmoid());
-        // Training
+
+        Train(dataset, trainSet, model);
+        Console.WriteLine();
+        Test(testSet);
+    }
+
+    static void Train(YaleDataset dataset, (double[], int)[] trainSet, BackPropagation model)
+    {
         Console.WriteLine($"Start training model with hidden {model.HiddenCount} neurons, learning rate {model.LearningRate}");
         for (var epoch = 0; epoch < Epoch; epoch++)
         {
@@ -24,16 +31,21 @@ class Program
             {
                 var output = model.Forward(input);
                 if (output.Argmax() == groundTruth)
+                {
                     correct++;
+                }
                 model.Backward(groundTruth.ToOneHotEncoding(dataset.SubjectCount));
             }
-            Log.Ok($"Epoch {epoch} training finished with accuracy {(double)correct / trainSet.Length}");
+            Log.Info($"Epoch {epoch} training finished with accuracy {(double)correct / trainSet.Length}");
         }
         Console.WriteLine("Training finished. Saving model...");
-        model.Save("BP.json");
-        Console.WriteLine();
+        model.Save("BP.sharpai");
+    }
 
-        // Test model accuracy
+    static void Test((double[], int)[] testSet)
+    {
+        var model = BackPropagation.Load("BP.sharpai");
+        Console.WriteLine("Loading model...");
         Console.WriteLine("Start testing model accuracy...");
         var correctCases = 0;
         foreach (var (input, groundTruth) in testSet)

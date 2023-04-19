@@ -1,16 +1,19 @@
 ﻿using System.Diagnostics;
-using System.Text.Json;
+using System.Runtime.Serialization.Formatters.Binary;
 using BackPropagationNeuralNetworkTR.Activation;
 
 namespace BackPropagationNeuralNetworkTR.Module;
 
+[Serializable]
 class BackPropagation : ILearnableModule<double, double>
 {
     public static BackPropagation Load(string path)
     {
         using var file = File.OpenRead(path);
-        using var reader = new StreamReader(file);
-        return JsonSerializer.Deserialize<BackPropagation>(reader.ReadToEnd())!;
+        var serializer = new BinaryFormatter();
+#pragma warning disable SYSLIB0011
+        return (BackPropagation)serializer.Deserialize(file);
+#pragma warning restore SYSLIB0011
     }
 
     public int InputCount { get; }
@@ -28,13 +31,13 @@ class BackPropagation : ILearnableModule<double, double>
     readonly double[] outputThresholds;
 
     public BackPropagation(int inputCount, int hiddenCount, int outputCount, double learningRate,
-                           IActivationFunction<double, double> activationFunction)
+                           IActivationFunction<double, double>? activationFunction = null)
     {
         InputCount = inputCount;
         HiddenCount = hiddenCount;
         OutputCount = outputCount;
         LearningRate = learningRate;
-        ActivationFunction = activationFunction;
+        ActivationFunction = activationFunction ?? new Sigmoid();
         input = new double[inputCount];
         hidden = new double[hiddenCount];
         output = new double[outputCount];
@@ -117,8 +120,10 @@ class BackPropagation : ILearnableModule<double, double>
     public void Save(string path)
     {
         using var file = File.Create(path);
-        using var writer = new StreamWriter(file);
-        writer.Write(JsonSerializer.Serialize(this));
+        var serializer = new BinaryFormatter();
+#pragma warning disable SYSLIB0011
+        serializer.Serialize(file, this);
+#pragma warning restore SYSLIB0011
     }
 }
 
